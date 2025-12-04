@@ -29,6 +29,7 @@
 ;;
 ;;     M-x `inspector-inspect-expression' to evaluate an elisp expression and inspect the result.
 ;;     M-x `inspector-inspect-last-sexp' to evaluate last sexp in current buffer and inspect the result.
+;;     M-x `inspector-inspect-defun' to evaluate the top-level defun at point at inspect the result.
 ;;
 ;; Inside the inspector:
 ;;
@@ -46,6 +47,12 @@
 ;; When on an Emacs debugging backtrace, press letter i to inspect the pointed frame and its local variables.
 ;;
 ;; When on edebug-mode, use C-c C-i for inspecting expressions in the debugger.
+;;
+;; From *Help* buffers:
+;;
+;; When in a *Help* buffer, such as the ones created from `describe-function', `describe-variable',
+;; `describe-keymap', and `describe-symbol', you can use M-x `inspector-inspect-help-buffer-expression'
+;; to inspect the symbol associated with that Help buffer.
 
 ;;; Code:
 
@@ -54,6 +61,7 @@
 (require 'edebug)
 (require 'backtrace)
 (require 'pp)
+(require 'subr-x)
 
 ;;---- Utils ----------
 
@@ -193,7 +201,10 @@ The target width is given by the `pp-max-width' variable."
   :group 'inspector)
 
 (defcustom inspector-switch-to-buffer t
-  "Use `switch-to-buffer-other-window' after an inspector buffer is opened."
+  "Use `switch-to-buffer-other-window' after an inspector buffer is opened.
+Otherwise, when nil, use `display-buffer' to display inspector buffers.
+
+This option applies to *inspector* and *inspector pprint* buffers."
   :type 'boolean
   :group 'inspector)
 
@@ -892,8 +903,8 @@ When PRESERVE-HISTORY is T, inspector history is not cleared."
 
 ;;;###autoload
 (defun inspector-inspect-defun ()
-  "Evaluate the top s-exp - simmilar the effect
- of M-x or eval-defun and inspect the result"
+  "Evaluate the top-level defun at point and inspect the result.
+This has a similar purpose to \\[eval-defun]."
   (interactive)
   (let* ((s-exp (read
                  (save-excursion
@@ -992,7 +1003,7 @@ When PRESERVE-HISTORY is T, inspector history is not cleared."
 
 ;;;###autoload
 (defun inspector-inspect-in-stack-frame (exp)
-  "Inspect an expression, in an environment like that outside the debugger.
+  "Inspect expression EXP in an environment like that outside the debugger.
 The environment used is the one when entering the activation frame at point."
   (interactive
    (list (read--expression "Inspect in stack frame: ")))
@@ -1008,6 +1019,16 @@ The environment used is the one when entering the activation frame at point."
 
 ;; Press 'C-c C-i' to inspect expression in edebug-mode
 (define-key edebug-mode-map (kbd "C-c C-i") #'inspector-inspect-edebug-expression)
+
+;; ----- help-mode---------------------------------------
+
+;;;###autoload
+(defun inspector-inspect-help-buffer-expression ()
+  "Inspect the current *Help* buffer\\='s symbol."
+  (interactive)
+  (if-let* ((expr (plist-get help-mode--current-data :symbol)))
+      (inspector-inspect (eval expr t))
+    (message "No symbol to inspect in Help buffer")))
 
 ;;--------- Inspector mode ---------------------------------
 
